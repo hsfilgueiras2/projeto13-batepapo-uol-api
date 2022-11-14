@@ -26,8 +26,8 @@ setInterval(removeInactive, 15000)
 //functions
 async function removeInactive() {
     const currentTime = Date.now()
-    const toRemove = await participants.find({ lastStatus: { $lt: currentTime - 10 } }).toArray()
-    await participants.deleteMany({ lastStatus: { $lt: currentTime - 10 } })
+    const toRemove = await participants.find({ lastStatus: { $lt: currentTime - 10000 } }).toArray()
+    await participants.deleteMany({ lastStatus: { $lt: currentTime - 10000 } })
     toRemove.forEach(async element => {
         await msgs.insertOne({ from: element.name, to: 'Todos', text: 'sai da sala...', type: 'status', time: dayjs().format("HH:mm:ss") })
     });
@@ -141,8 +141,6 @@ app.post("/status", async (req, res) => {
             return;
         }
         await participants.updateOne({ name: user }, { $set: { lastStatus: Date.now() } })
-
-
         res.sendStatus(200)
     } catch (err) { res.sendStatus(500) }
 })
