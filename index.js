@@ -3,12 +3,14 @@ import joi from "joi";
 import express from "express";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
+import cors from "cors"
 dotenv.config();
 
 
 const mongoClient = new MongoClient(process.env.MONGO_URI);
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 
 try {
@@ -32,14 +34,15 @@ async function removeInactive() {
 
 }
 
-function returnMsgs(num, user) {
-    const msgsToReturn = []
-    msgs.find().toArray().then(mesgs => msgsToReturn = [...mesgs])
-    msgsToReturn = msgsToReturn.filter(obj => {
-        return obj.to == user || obj.from == user || obj.to == 'Todos';
+async function returnMsgs(num, user) {
+    let msgsToReturn = []
+    const mesgs = await msgs.find().toArray();
+    msgsToReturn = mesgs.filter((obj) => {
+         if(obj.to == 'Todos'||obj.from == user||obj.to == user){return obj;};
     });
-    if (num != null && num != undefined) {
-        msgsToReturn.slice(-num)
+    if (num >=0 && num<msgsToReturn.length) {
+        console.log("NOT UNDEFINED")
+        msgsToReturn = msgsToReturn.slice(-num)
     }
     return msgsToReturn;
 
@@ -78,34 +81,45 @@ app.post("/participants", async (req, res) => {
 
         );
         await msgs.insertOne(
-            { from: name, to: 'todos', text: 'entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss") }
+            { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss") }
         );
         res.sendStatus(201)
     } catch (err) { console.log(err); res.sendStatus(500) }
 
 });
 app.get("/messages", async (req, res) => {
+    console.log(req.headers)
     const user = req.headers.user
     const limit = parseInt(req.query.limit);
-    res.send(returnMsgs(limit, user))
+    const msgArr = await returnMsgs(limit,user)
+    console.log(msgArr);
+    console.log("-----------------")
+    res.send(msgArr)
 
 });
 app.post("/messages", async (req, res) => {
     const userArr = await participants.find().toArray()
+    console.log(userArr);
     const fromARR = [];
     userArr.forEach(element => {
         fromARR.push(element.name)
     });
+    console.log("----------")
+    console.log(fromARR)
     const messageSchema = joi.object({
         to: joi.string().required(),
         text: joi.string().required(),
-        type: joi.any().valid(['message','private_message']),
+        type: joi.any().valid('message','private_message'),
         from: joi.any().valid(...fromARR)
     })
+
     const { to, text, type } = req.body
     const user = req.headers.user
-    if(messageSchema.validate({from: user, to: to, text: text, type: type},{abortEarly:false}))
+    console.log("SUCESSO")
+    console.log({from: user, to: to, text: text, type: type},{abortEarly:false})
+    if(messageSchema.validate({from: user, to: to, text: text, type: type},{abortEarly:false}).error)
     {
+        console.log(messageSchema.validate({from: user, to: to, text: text, type: type},{abortEarly:false}).error)
         res.sendStatus(422);
         return;
     }
